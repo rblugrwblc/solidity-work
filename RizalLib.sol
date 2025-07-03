@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
 
@@ -84,6 +85,7 @@ contract RizalLib {
     // Mappings to store student records and borrowed timestamps
     mapping(address => Student) public students; 
     mapping(address => uint) public borrowedAt; 
+    mapping(uint => bool) public borrowedBook; //check if book is borrowed or not
 
     // Configuration variables 
     uint public nextId = 10000001; // another approach is hash address 
@@ -134,10 +136,15 @@ contract RizalLib {
             _bookNumber != 0, 
             "This book does not exist!"
         );
-
+        require (
+            !borrowedBook[_bookNumber], //not currently borrowed
+            "This book is unavailable"
+        );
         students[msg.sender].bookNumber = _bookNumber; 
         students[msg.sender].Book = HASBOOK.HAS;
         borrowedAt[msg.sender] = block.timestamp;
+        borrowedBook[_bookNumber] = true; //if borrowed then true
+        
     }
 
     /**
@@ -148,7 +155,9 @@ contract RizalLib {
         require(students[msg.sender].Book == HASBOOK.HAS, "You have no book to return");
 
         uint borrowedTime = borrowedAt[msg.sender];
+        uint bookNum = students[msg.sender].bookNumber;
         require(borrowedTime != 0, "Borrow record not found");
+        
 
         if (block.timestamp > borrowedTime + deadline) {
             students[msg.sender].Hold = HOLDORDER.HAS; 
@@ -158,6 +167,8 @@ contract RizalLib {
         students[msg.sender].Book = HASBOOK.NONE;
         students[msg.sender].bookNumber = 0;
         borrowedAt[msg.sender] = 0;
+        borrowedBook[bookNum] = false; //if returned then borrowed book is false
+
     }
 
     /**
@@ -167,3 +178,4 @@ contract RizalLib {
         students[msg.sender].Hold = HOLDORDER.NONE;
     }
 }
+
