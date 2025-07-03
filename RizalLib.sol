@@ -102,7 +102,7 @@ contract RizalLib {
      * @param _student The address of the student to add
      */ 
     function addStudent(address _student) public isLibrarian {
-        requre (
+        require (
             _student != librarian,
             "Librarian cannot be student!"
         ); 
