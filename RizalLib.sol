@@ -87,7 +87,7 @@ contract RizalLib {
 
     // Configuration variables 
     uint public nextId = 10000001; // another approach is hash address 
-    uint public deadline = 1 seconds;
+    uint public deadline = 14 days;
     uint public penaltyAmount = 50000; // Default currency is Wei
 
     /*
@@ -102,6 +102,10 @@ contract RizalLib {
      * @param _student The address of the student to add
      */ 
     function addStudent(address _student) public isLibrarian {
+        requre (
+            _student != librarian,
+            "Librarian cannot be student!"
+        ); 
         
         // This is done in the code for ease of checking 
         require (
