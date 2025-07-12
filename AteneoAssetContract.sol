@@ -163,7 +163,7 @@ contract AteneoLendingContract {
         // TO ADD: Check penalty payment amount and update borrower status
         require(
             msg.value == PENALTY_FEE, 
-            "The entered ammount to pay the penalty is not correct!"
+            "The entered amount to pay the penalty is not correct!"
         ); 
         flags[msg.sender] = false; 
     }
