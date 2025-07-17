@@ -21,8 +21,11 @@ contract AutoChainParts {
 
     // implement part counting system 
     Counters.Counter private _nextPartId;
+    Counters.Counter private _nextTransferId;
+
 
     enum Condition{ MINT, GOOD, FAIR, POOR, BAD }
+    enum TransferStatus { IN_TRANSIT, DELIVERED }
 
     // structures to take note of 
     struct Part {
@@ -35,8 +38,22 @@ contract AutoChainParts {
         string brand;  
     }
 
+    struct Transfer {
+        uint256 transferID;
+        uint256 partID;
+        address from;
+        address to;
+        uint256 transferDate;
+        TransferStatus status; 
+        string transferHash;
+    }
+
+
     // not sure if the state modifier is right for this
     mapping(uint256 => Part) public parts; 
+    mapping(uint256 => Transfer) public transfers; 
+    mapping(uint256 => address) public partOwner; 
+    mapping(uint256 => Transfer[]) public transferHistory;
 
     constructor() {
     }
@@ -60,18 +77,36 @@ contract AutoChainParts {
             // REPLACE WHEN ROLES 
             brand: "BMW"
         }); 
-    }
 
-}
+        partOwner[partId] = msg.sender;
+    }
 
 /// For transfering later
-
-    struct Transfer {
-        uint256 transferID;
-        uint256 partID;
-        address from;
-        address to;
-        uint256 transferDate;
-        string Status; 
-        string transferHash;
+    function transferPart(uint256 _partID, address _to, TransferStatus status) public {
+        require(partOwner[_partID] == msg.sender, "You are not the owner of this part.");
+        
+        uint256 transferID = _nextTransferId.current();
+        
+        transfers[transferID] = Transfer({
+            transferID: transferID,
+            partID: _partID,
+            from: msg.sender,
+            to: _to,
+            transferDate: block.timestamp,
+            status: status,
+            transferHash: ""
+        });
+        
+        partOwner[_partID] = _to;
+        transferHistory[_partID].push(transfers[transferID]);
+        _nextTransferId.increment();
     }
+    
+    function getTransferHistory(uint256 _partID) public view returns (Transfer[] memory) {
+        return transferHistory[_partID];
+    }
+}
+
+
+
+
