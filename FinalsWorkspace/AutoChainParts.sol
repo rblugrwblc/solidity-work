@@ -65,7 +65,7 @@ contract AutoChainParts {
 }
 
 /// For transfering later
-/*
+
     struct Transfer {
         uint256 transferID;
         uint256 partID;
@@ -75,5 +75,3 @@ contract AutoChainParts {
         string Status; 
         string transferHash;
     }
-
-*/ 
