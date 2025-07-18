@@ -105,6 +105,15 @@ contract AutoChainParts {
     function getTransferHistory(uint256 _partID) public view returns (Transfer[] memory) {
         return transferHistory[_partID];
     }
+
+    //for debugging purposes
+    function getUser() public view returns (address) {
+        return msg.sender;
+    }
+
+    function getPartOwner(uint256 _partID) public view returns (address) {
+        return partOwner[_partID];
+    }
 }
 
 
