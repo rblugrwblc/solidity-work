@@ -92,4 +92,10 @@ contract AutoChainParts {
         require(msg.sender == part.owner(), "Not owner");
         part.updateCondition(_condition);
     }
+    
+    //for debugging purposes
+    function getUser() public view returns (address) {
+        return msg.sender;
+    }
 }
+
