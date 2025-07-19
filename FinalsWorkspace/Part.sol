@@ -1,42 +1,65 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+contract Part {
+    enum Condition { BAD, POOR, FAIR, GOOD, MINT }
 
-contract Part is Ownable {
-    // also uses int basis
-    enum Condition { MINT, GOOD, FAIR, POOR, BAD  }
+    uint256 private partID;
+    string private carPart;
+    string private brand;
+    Condition private condition;
+    bool private warrantyClaimed;
 
-    uint256 public partID;
-    string public metadata;
-    Condition public condition;
-    bool public warrantyClaimed;
+    address public owner;
     address public autoChainAddress;
 
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-    constructor(uint256 _partID, string memory _metadata, address _owner) Ownable(_owner) {
+    modifier onlyAutoChain() {
+        require(msg.sender == autoChainAddress, "Only AutoChainParts can call this");
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not part owner");
+        _;
+    }
+
+    constructor(uint256 _partID, string memory _carPart, string memory _brand, address _initialOwner) {
+        require(_initialOwner != address(0), "Invalid owner");
         partID = _partID;
-        metadata = _metadata;
+        carPart = _carPart;
+        brand = _brand;
         condition = Condition.MINT;
         warrantyClaimed = false;
-        _transferOwnership(_owner);
+
+        owner = _initialOwner;
         autoChainAddress = msg.sender;
     }
 
-    function updateCondition(Condition _condition) external {
-        require(msg.sender == autoChainAddress, "Only owner can update condition");
+    function updateCondition(Condition _condition) external onlyAutoChain {
         condition = _condition;
     }
 
-    function contractTransferOwnership(address newOwner) external {
-        require(msg.sender != address(0), "Invalid sender");
-        require(msg.sender == autoChainAddress, "Only owner can transfer");
-        _transferOwnership(newOwner);
+    function contractTransferOwnership(address newOwner) external onlyAutoChain {
+        require(newOwner != address(0), "Cannot transfer to zero address");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
     }
 
-    function claimWarranty() external {
+    function claimWarranty() external onlyAutoChain {
         require(!warrantyClaimed, "Already claimed");
-        require(msg.sender == autoChainAddress, "Only owner can claim warranty");
         warrantyClaimed = true;
+    }
+
+    function getPartInfo() external view returns (
+        uint256 _partID,
+        string memory _carPart,
+        string memory _brand,
+        Condition _condition,
+        bool _warrantyClaimed,
+        address _currentOwner
+    ) {
+        return (partID, carPart, brand, condition, warrantyClaimed, owner);
     }
 }
