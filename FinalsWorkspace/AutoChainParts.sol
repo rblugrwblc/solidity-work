@@ -11,7 +11,7 @@ contract AutoChainParts {
     Counters.Counter private _nextPartId;
     RoleManager private roleManager;
 
-    mapping(uint256 => address) public parts;
+    mapping(uint256 => address) private parts;
     mapping(uint256 => address[]) private partHistory;
     mapping(uint256 => uint256) private partPrices;
     mapping(uint256 => uint256) private boughtAt;
@@ -26,15 +26,33 @@ contract AutoChainParts {
         roleManager = RoleManager(_roleManagerAddress);
     }
 
-    modifier onlyRole(RoleManager.Role _role) {
-        require(roleManager.getRole(msg.sender) == _role, "Wrong role");
+    modifier onlyManufacturer() {
+        require(roleManager.getRole(msg.sender) == RoleManager.Role.Manufacturer, "Not manufacturer"); 
         _;
     }
 
-    function createPart(string memory partName, uint256 partPrice) external onlyRole(RoleManager.Role.Manufacturer) {
+    modifier onlyManufacturerOrSeller() {
+    RoleManager.Role role = roleManager.getRole(msg.sender);
+    require(role == RoleManager.Role.Manufacturer 
+        || role == RoleManager.Role.Seller,
+        "Not manufacturer or seller"
+        );
+        _;
+    }
+
+    function updatePrice(uint256 partId, uint256 _newPrice) external onlyManufacturerOrSeller  {
+        Part part = Part(parts[partId]);
+        require(msg.sender == part.owner(), "Not owner"); 
+
+        part.updatePartPrice(_newPrice); 
+
+    }
+
+    function createPart(string memory partName, uint256 partPrice) external onlyManufacturer() {
         uint256 partId = _nextPartId.current();
 
-        Part part = new Part(partId, partName, roleManager.getManufacturerBrand(msg.sender), msg.sender);
+        // Default Price is set to 0 
+        Part part = new Part(0, partId, partName, roleManager.getManufacturerBrand(msg.sender), msg.sender);
         parts[partId] = address(part);
 
         partPrices[partId] = partPrice * 1 ether;
@@ -126,7 +144,13 @@ contract AutoChainParts {
         );
     }
 
-    function getPartHistory(uint256 partId) external view returns (address[] memory) {
-        return partHistory[partId];
+    function getPartTransferRecord(uint256 partId, uint256 transactionNumber) external view returns (
+        address from, 
+        address to, 
+        uint256 timestamp 
+    ) {
+        Part part = Part(parts[partId]);
+        return part.getTransferRecord(transactionNumber);
     }
+
 }

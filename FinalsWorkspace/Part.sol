@@ -11,6 +11,7 @@ contract Part {
     }
 
     uint256 public partID;
+    uint256 private partPrice; 
     string private carPart;
     string private brand;
     Condition private condition;
@@ -32,9 +33,10 @@ contract Part {
         _;
     }
 
-    constructor(uint256 _partID, string memory _carPart, string memory _brand, address _initialOwner) {
+    constructor(uint256 _partPrice, uint256 _partID, string memory _carPart, string memory _brand, address _initialOwner) {
         require(_initialOwner != address(0), "Invalid owner");
         partID = _partID;
+        partPrice = _partPrice; 
         carPart = _carPart;
         brand = _brand;
         condition = Condition.MINT;
@@ -83,7 +85,22 @@ contract Part {
         return condition; 
     }
 
-    function getTransferHistory() external view onlyAutoChain returns (TransferRecord[] memory) {
-        return transferHistory;
+    function getPartPrice() external view onlyAutoChain returns (uint256 _partPrice) {
+        return partPrice; 
     }
+
+    function getTransferRecord(uint256 index) external view onlyAutoChain returns (address from, address to, uint256 timestamp ) {
+        require(index < transferHistory.length, "Index out of bounds");
+        TransferRecord memory record = transferHistory[index];
+        return (record.from, record.to, record.timestamp);
+    }
+
+    function getLatestTransaction() external view onlyAutoChain returns (uint256 latest){
+        return transferHistory.length; 
+    }
+
+    function updatePartPrice(uint256 _partPrice) external onlyAutoChain {
+        partPrice = _partPrice;
+    }
+
 }
