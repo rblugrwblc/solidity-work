@@ -8,6 +8,7 @@ import "./RoleManager.sol";
 contract AutoChainParts {
     using Counters for Counters.Counter;
 
+    // === DEFINITION OF STATE VARIABLES === 
     Counters.Counter private _nextPartId;
     RoleManager private roleManager;
 
@@ -26,9 +27,16 @@ contract AutoChainParts {
         roleManager = RoleManager(_roleManagerAddress);
     }
 
+    // === MODIFIERS AND FUNCTIONS TO CHECK FOR ROLES AND CALLS ===
     modifier onlyManufacturer() {
         require(roleManager.getRole(msg.sender) == RoleManager.Role.Manufacturer, "Not manufacturer"); 
         _;
+    }
+
+    modifier isOwner(uint partId) {
+        Part part = Part(parts[partId]);
+        require(part.getOwner() == msg.sender, "Not the owner"); 
+        _; 
     }
 
     modifier onlyManufacturerOrSeller() {
@@ -40,18 +48,17 @@ contract AutoChainParts {
         _;
     }
 
-    function updatePrice(uint256 partId, uint256 _newPrice) external onlyManufacturerOrSeller  {
-        Part part = Part(parts[partId]);
-        require(msg.sender == part.owner(), "Not owner"); 
-
-        part.updatePartPrice(_newPrice); 
-
+    function _validFlow(RoleManager.Role from, RoleManager.Role to) internal pure returns (bool) {
+        if (from == RoleManager.Role.Manufacturer && to == RoleManager.Role.Seller) return true;
+        if ((from == RoleManager.Role.Seller && to == RoleManager.Role.Buyer) 
+            || (from == RoleManager.Role.Buyer && to == RoleManager.Role.Seller)) return true;
+        return false;
     }
 
-    function createPart(string memory partName, uint256 partPrice) external onlyManufacturer() {
+    // === PART CREATION AND UPDATING VARIABLES (PRICE/CONDITION) === 
+    function createPart(string memory partName, uint256 partPrice) external onlyManufacturer {
         uint256 partId = _nextPartId.current();
 
-        // Default Price is set to 0 
         Part part = new Part(0, partId, partName, roleManager.getManufacturerBrand(msg.sender), msg.sender);
         parts[partId] = address(part);
 
@@ -62,35 +69,32 @@ contract AutoChainParts {
         _nextPartId.increment();
     }
 
-    function transferPart(uint256 partId, address to) external {
-        require(to != address(0), "Invalid recipient");
+    function updatePrice(uint256 partId, uint256 _newPrice) external onlyManufacturerOrSeller isOwner(partId) {
         Part part = Part(parts[partId]);
-        require(msg.sender == part.owner(), "Not owner");
-
-        RoleManager.Role fromRole = roleManager.getRole(msg.sender);
-        RoleManager.Role toRole = roleManager.getRole(to); 
-
-        require(_validFlow(fromRole, toRole), "Bad transfer");
-
-        if (toRole == RoleManager.Role.Buyer) {
-            boughtAt[partId] = block.timestamp;
-        }
-
-        part.contractTransferOwnership(to);
-        partHistory[partId].push(to);
-        emit Transferred(partId, msg.sender, to);
+        part.updatePartPrice(_newPrice); 
     }
 
+    function updateCondition(uint256 partId, Part.Condition _condition) external {
+        Part part = Part(parts[partId]);
+        require(msg.sender == part.owner(), "Not owner");
+        part.updateCondition(_condition);
+    }  
+
+    // === TRANSFERRING PARTS LOGICS ===
+
+    // Buy part (where there's an actual transaction)  
+    // Logic flow: M -> S -> B
     function buyPart(uint256 partID) external payable {
         address buyer = msg.sender;
         Part part = Part(parts[partID]);
         address seller = part.owner();
-        uint256 price = partPrices[partID];
+        uint256 price = part.getPartPrice(); 
 
         require(buyer != address(0), "Invalid buyer");
         require(buyer != seller, "Already owner");
         require(msg.value >= price, "Insufficient funds");
-        require(_validFlow(roleManager.getRole(seller), roleManager.getRole(buyer)), "Transfer not allowed");
+
+        require(_validFlow(roleManager.getRole(seller), roleManager.getRole(buyer)), "Purchase not allowed");
 
         payable(seller).transfer(price);
 
@@ -105,13 +109,7 @@ contract AutoChainParts {
         emit Transferred(partID, seller, buyer);
     }
 
-    function _validFlow(RoleManager.Role from, RoleManager.Role to) internal pure returns (bool) {
-        if (from == RoleManager.Role.Manufacturer && to == RoleManager.Role.Seller) return true;
-        if ((from == RoleManager.Role.Seller && to == RoleManager.Role.Buyer) 
-            || (from == RoleManager.Role.Buyer && to == RoleManager.Role.Seller)) return true;
-        return false;
-    }
-
+    // WARRANTY LOGIC 
     function claimWarranty(uint256 partId) external {
         Part part = Part(parts[partId]);
         require(msg.sender == part.owner(), "Not owner");
@@ -137,16 +135,14 @@ contract AutoChainParts {
         return WarrantyLeft;
     }
 
-    function updateCondition(uint256 partId, Part.Condition _condition) external {
-        Part part = Part(parts[partId]);
-        require(msg.sender == part.owner(), "Not owner");
-        part.updateCondition(_condition);
-    }
-
+    // === GET PART DETAILS === 
+    
+    // Return to check part details of given Id
     function viewPartDetails(uint256 partId) external view returns (
         string memory carPart, 
         string memory brand, 
         Part.Condition condition, 
+        uint256 price,
         address currentOwner 
         ) {
         
@@ -155,10 +151,12 @@ contract AutoChainParts {
             part.getCarPart(),
             part.getBrand(),
             part.getCondition(),
+            part.getPartPrice(),
             part.owner()
         );
     }
 
+    // Check History of Part
     function getPartTransferRecord(uint256 partId, uint256 transactionNumber) external view returns (
         address from, 
         address to, 
@@ -167,4 +165,31 @@ contract AutoChainParts {
         Part part = Part(parts[partId]);
         return part.getTransferRecord(transactionNumber);
     }
+
+    function getLatestTransactionNumber(uint256 partId) external view returns (uint) {
+        return Part(parts[partId]).getLatestTransaction(); 
+    }
+
+
+    // === NICHE CASE FUNCTION === 
+    // transfer parts and stuff 
+    function transferPart(uint256 partId, address to) external {
+        require(to != address(0), "Invalid recipient");
+        Part part = Part(parts[partId]);
+        require(msg.sender == part.owner(), "Not owner");
+
+        RoleManager.Role fromRole = roleManager.getRole(msg.sender);
+        RoleManager.Role toRole = roleManager.getRole(to); 
+
+        require(_validFlow(fromRole, toRole), "Bad transfer");
+
+        if (toRole == RoleManager.Role.Buyer) {
+            boughtAt[partId] = block.timestamp;
+        }
+
+        part.contractTransferOwnership(to);
+        partHistory[partId].push(to);
+        emit Transferred(partId, msg.sender, to);
+    }
+    
 }
