@@ -109,4 +109,20 @@ contract AutoChainParts {
         require(msg.sender == part.owner(), "Not owner");
         part.updateCondition(_condition);
     }
+
+    function viewPartDetails(uint256 partId) external view returns (
+        string memory carPart, 
+        string memory brand, 
+        Part.Condition condition, 
+        address currentOwner 
+        ) {
+        
+        Part part = Part(parts[partId]);
+        return (
+            part.getCarPart(),
+            part.getBrand(),
+            part.getCondition(),
+            part.owner()
+        );
+    }
 }

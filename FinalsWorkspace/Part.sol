@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 contract Part {
     enum Condition { BAD, POOR, FAIR, GOOD, MINT }
 
-    uint256 private partID;
+    uint256 public partID;
     string private carPart;
     string private brand;
     Condition private condition;
@@ -52,14 +52,17 @@ contract Part {
         warrantyClaimed = true;
     }
 
-    function getPartInfo() external view returns (
-        uint256 _partID,
-        string memory _carPart,
-        string memory _brand,
-        Condition _condition,
-        bool _warrantyClaimed,
-        address _currentOwner
-    ) {
-        return (partID, carPart, brand, condition, warrantyClaimed, owner);
+    function getCarPart() external view onlyAutoChain returns (string memory _carPart) {
+        return carPart; 
     }
+
+    function getBrand() external view onlyAutoChain returns (string memory _brand) {
+        return brand; 
+    }
+
+    function getCondition() external view onlyAutoChain returns (Condition _condition) {
+        return condition; 
+    }
+
+
 }
