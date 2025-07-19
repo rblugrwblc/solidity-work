@@ -73,6 +73,10 @@ contract Part {
         warrantyClaimed = true;
     }
 
+    function getWarranty() external view onlyAutoChain returns (bool) {
+        return warrantyClaimed;
+    }
+
     function getCarPart() external view onlyAutoChain returns (string memory _carPart) {
         return carPart; 
     }

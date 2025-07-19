@@ -122,6 +122,21 @@ contract AutoChainParts {
         part.claimWarranty();
     }
 
+    function getWarrantyValidity(uint256 partId) external view returns (bool) {
+        Part part = Part(parts[partId]);
+        return !part.getWarranty();
+    }
+
+    function getWarrantyLeft(uint256 partId) external view returns (uint256) {
+        Part part = Part(parts[partId]);
+        require(part.getWarranty() == false, "Warranty already claimed");
+        uint256 WarrantyLeft;
+        if (block.timestamp <= boughtAt[partId] + WARRANTY_PERIOD) {
+            WarrantyLeft = (boughtAt[partId] + WARRANTY_PERIOD) - block.timestamp;
+        }
+        return WarrantyLeft;
+    }
+
     function updateCondition(uint256 partId, Part.Condition _condition) external {
         Part part = Part(parts[partId]);
         require(msg.sender == part.owner(), "Not owner");
@@ -152,5 +167,4 @@ contract AutoChainParts {
         Part part = Part(parts[partId]);
         return part.getTransferRecord(transactionNumber);
     }
-
 }
