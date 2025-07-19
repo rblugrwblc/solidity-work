@@ -11,6 +11,8 @@ contract Part is Ownable {
     string public metadata;
     Condition public condition;
     bool public warrantyClaimed;
+    address public autoChainAddress;
+
 
     constructor(uint256 _partID, string memory _metadata, address _owner) Ownable(_owner) {
         partID = _partID;
@@ -18,14 +20,23 @@ contract Part is Ownable {
         condition = Condition.MINT;
         warrantyClaimed = false;
         _transferOwnership(_owner);
+        autoChainAddress = msg.sender;
     }
 
-    function updateCondition(Condition _condition) external onlyOwner {
+    function updateCondition(Condition _condition) external {
+        require(msg.sender == autoChainAddress, "Only owner can update condition");
         condition = _condition;
     }
 
-    function claimWarranty() external onlyOwner {
+    function contractTransferOwnership(address newOwner) external {
+        require(msg.sender != address(0), "Invalid sender");
+        require(msg.sender == autoChainAddress, "Only owner can transfer");
+        _transferOwnership(newOwner);
+    }
+
+    function claimWarranty() external {
         require(!warrantyClaimed, "Already claimed");
+        require(msg.sender == autoChainAddress, "Only owner can claim warranty");
         warrantyClaimed = true;
     }
 }
