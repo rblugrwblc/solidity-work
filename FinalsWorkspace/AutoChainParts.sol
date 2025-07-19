@@ -59,10 +59,11 @@ contract AutoChainParts {
     function createPart(string memory partName, uint256 partPrice) external onlyManufacturer {
         uint256 partId = _nextPartId.current();
 
-        Part part = new Part(0, partId, partName, roleManager.getManufacturerBrand(msg.sender), msg.sender);
+        partPrices[partId] = partPrice * 1 ether;
+
+        Part part = new Part(partPrices[partId], partId, partName, roleManager.getManufacturerBrand(msg.sender), msg.sender);
         parts[partId] = address(part);
 
-        partPrices[partId] = partPrice * 1 ether;
         partHistory[partId].push(msg.sender);
 
         emit PartCreated(partId, address(part));
@@ -71,7 +72,7 @@ contract AutoChainParts {
 
     function updatePrice(uint256 partId, uint256 _newPrice) external onlyManufacturerOrSeller isOwner(partId) {
         Part part = Part(parts[partId]);
-        part.updatePartPrice(_newPrice); 
+        part.updatePartPrice(_newPrice * 1 ether); 
     }
 
     function updateCondition(uint256 partId, Part.Condition _condition) external {
