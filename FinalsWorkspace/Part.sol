@@ -4,11 +4,18 @@ pragma solidity ^0.8.17;
 contract Part {
     enum Condition { BAD, POOR, FAIR, GOOD, MINT }
 
+    struct TransferRecord {
+        address from;
+        address to;
+        uint256 timestamp;
+    }
+
     uint256 public partID;
     string private carPart;
     string private brand;
     Condition private condition;
     bool private warrantyClaimed;
+    TransferRecord[] public transferHistory;
 
     address public owner;
     address public autoChainAddress;
@@ -34,6 +41,11 @@ contract Part {
         warrantyClaimed = false;
 
         owner = _initialOwner;
+        transferHistory.push(TransferRecord({
+            from: address(0),  
+            to: _initialOwner, 
+            timestamp: block.timestamp
+        })); 
         autoChainAddress = msg.sender;
     }
 
@@ -44,6 +56,13 @@ contract Part {
     function contractTransferOwnership(address newOwner) external onlyAutoChain {
         require(newOwner != address(0), "Cannot transfer to zero address");
         emit OwnershipTransferred(owner, newOwner);
+
+        transferHistory.push(TransferRecord({
+            from: owner,
+            to: newOwner,
+            timestamp: block.timestamp
+        })); 
+
         owner = newOwner;
     }
 
@@ -64,5 +83,7 @@ contract Part {
         return condition; 
     }
 
-
+    function getTransferHistory() external view onlyAutoChain returns (TransferRecord[] memory) {
+        return transferHistory;
+    }
 }

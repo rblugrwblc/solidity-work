@@ -12,7 +12,7 @@ contract AutoChainParts {
     RoleManager private roleManager;
 
     mapping(uint256 => address) public parts;
-    mapping(uint256 => address[]) public partHistory;
+    mapping(uint256 => address[]) private partHistory;
     mapping(uint256 => uint256) private partPrices;
     mapping(uint256 => uint256) private boughtAt;
 
@@ -124,5 +124,9 @@ contract AutoChainParts {
             part.getCondition(),
             part.owner()
         );
+    }
+
+    function getPartHistory(uint256 partId) external view returns (address[] memory) {
+        return partHistory[partId];
     }
 }
