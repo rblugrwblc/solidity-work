@@ -17,7 +17,7 @@ contract AutoChainParts {
     mapping(uint256 => uint256) private partPrices;
     mapping(uint256 => uint256) private boughtAt;
 
-    uint256 private constant WARRANTY_PERIOD = 1 minutes; // FOR TESTING
+    uint256 private constant WARRANTY_PERIOD = 365 days; 
 
     event PartCreated(uint256 partId, address partAddress);
     event Transferred(uint256 partId, address from, address to);
