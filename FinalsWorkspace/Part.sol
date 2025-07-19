@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 contract Part {
-    enum Condition { BAD, POOR, FAIR, GOOD, MINT }
+    enum Condition { BAD, POOR, FAIR, GOOD, MINT } // Use 0 - 4 Scale 
 
     struct TransferRecord {
         address from;
@@ -68,15 +68,6 @@ contract Part {
         owner = newOwner;
     }
 
-    function claimWarranty() external onlyAutoChain {
-        require(!warrantyClaimed, "Already claimed");
-        warrantyClaimed = true;
-    }
-
-    function getWarranty() external view onlyAutoChain returns (bool) {
-        return warrantyClaimed;
-    }
-
     function getCarPart() external view onlyAutoChain returns (string memory _carPart) {
         return carPart; 
     }
@@ -93,6 +84,19 @@ contract Part {
         return partPrice; 
     }
 
+    function getOwner() external view onlyAutoChain returns (address _owner) {
+        return owner; 
+    }
+
+    function claimWarranty() external onlyAutoChain {
+        require(!warrantyClaimed, "Already claimed");
+        warrantyClaimed = true;
+    }
+
+    function getWarranty() external view onlyAutoChain returns (bool) {
+        return warrantyClaimed;
+    }
+
     function getTransferRecord(uint256 index) external view onlyAutoChain returns (address from, address to, uint256 timestamp ) {
         require(index < transferHistory.length, "Index out of bounds");
         TransferRecord memory record = transferHistory[index];
@@ -100,7 +104,7 @@ contract Part {
     }
 
     function getLatestTransaction() external view onlyAutoChain returns (uint256 latest){
-        return transferHistory.length; 
+        return transferHistory.length - 1; 
     }
 
     function updatePartPrice(uint256 _partPrice) external onlyAutoChain {
