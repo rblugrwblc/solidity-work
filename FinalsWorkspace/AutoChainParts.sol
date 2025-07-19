@@ -25,7 +25,11 @@ contract AutoChainParts {
     mapping(address => Role) public roles;
     mapping(uint256 => address) public parts;
     mapping(uint256 => address[]) public partHistory;
+    mapping(uint256 => uint256) public partPrices;
+    mapping(uint256 => uint256) public boughtAt;
+
     uint256 public nextPartId;
+    uint256 private constant WARRANTY_PERIOD = 365 days;
 
     event PartCreated(uint256 partId, address partAddress);
     event Transferred(uint256 partId, address from, address to);
@@ -43,11 +47,12 @@ contract AutoChainParts {
     }
 
     // Only Manufacturer can make parts
-    function createPart(string memory metadata) external onlyRole(Role.Manufacturer) {
+    function createPart(string memory metadata, uint256 partPrice) external onlyRole(Role.Manufacturer) {
         uint256 partId = _nextPartId.current(); 
         Part part = new Part(partId, metadata, msg.sender);
         parts[partId] = address(part);
 
+        partPrices[partId] = partPrice * 1 ether;
         partHistory[partId].push(msg.sender);
         emit PartCreated(partId, address(part));
         _nextPartId.increment(); 
@@ -63,9 +68,37 @@ contract AutoChainParts {
         Role toRole = roles[to];
         require(_validFlow(fromRole, toRole), "Bad transfer");
 
-        part.transferOwnership(to);
+        if (toRole == Role.Consumer) {
+            boughtAt[partId] = block.timestamp;
+        }
+
+        part.contractTransferOwnership(to);
         partHistory[partId].push(to);
         emit Transferred(partId, msg.sender, to);
+    }
+
+    function buyPart(uint256 partID) external payable {
+        address buyer = msg.sender;
+        Part part = Part(parts[partID]);
+        address seller = part.owner();
+        uint256 price = partPrices[partID];
+
+        require(buyer != address(0), "Invalid part");
+        require(buyer != seller, "Already owner");
+        require(msg.value >= price, "Insufficient funds");
+        require(_validFlow(roles[seller], roles[buyer]), "Transfer not allowed");
+
+        payable(seller).transfer(price);
+
+        if (msg.value > price) {
+            payable(buyer).transfer(msg.value - price);
+        }
+
+        part.contractTransferOwnership(buyer);
+        partHistory[partID].push(buyer);
+        emit Transferred(partID, seller, buyer);
+
+        boughtAt[partID] = block.timestamp; 
     }
 
     // Basically saying M -> D -> R -> C (add more if ever)
@@ -84,6 +117,8 @@ contract AutoChainParts {
         Part part = Part(parts[partId]);
         require(msg.sender == part.owner(), "Not owner");
         require(roles[msg.sender] == Role.Consumer, "Not consumer");
+        require(block.timestamp <= boughtAt[partId] + WARRANTY_PERIOD, "Warranty expired");
+        require(boughtAt[partId] != 0, "No purchase record");
         part.claimWarranty();
     }
 
