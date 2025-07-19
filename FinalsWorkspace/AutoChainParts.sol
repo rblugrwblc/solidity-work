@@ -3,72 +3,58 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./Part.sol";
-
-/*
-To implement: 
-    - Allow it to be applied to real life scenarios 
-    - Eg. 
-        - fix flow from Manufacturer -> Consumer 
-        - where are the payments? 
-    - Refine Roles and who is allowed to do things 
-    - Can anyone enlist themself for part owner?
-    - Do we need multiple files [?]
-*/ 
+import "./RoleManager.sol";
 
 contract AutoChainParts {
     using Counters for Counters.Counter;
 
-    Counters.Counter private _nextPartId; 
-    // using int basis for this tho
-    enum Role { None, Manufacturer, Distributor, Retailer, Consumer }
+    Counters.Counter private _nextPartId;
+    RoleManager private roleManager;
 
-    mapping(address => Role) public roles;
     mapping(uint256 => address) public parts;
     mapping(uint256 => address[]) public partHistory;
-    mapping(uint256 => uint256) public partPrices;
-    mapping(uint256 => uint256) public boughtAt;
+    mapping(uint256 => uint256) private partPrices;
+    mapping(uint256 => uint256) private boughtAt;
 
-    uint256 public nextPartId;
-    uint256 private constant WARRANTY_PERIOD = 365 days;
+    uint256 private constant WARRANTY_PERIOD = 1 minutes; // FOR TESTING
 
     event PartCreated(uint256 partId, address partAddress);
     event Transferred(uint256 partId, address from, address to);
 
-    modifier onlyRole(Role _role) {
-        require(roles[msg.sender] == _role, "Wrong role");
+    constructor(address _roleManagerAddress) {
+        require(_roleManagerAddress != address(0), "Invalid RoleManager address");
+        roleManager = RoleManager(_roleManagerAddress);
+    }
+
+    modifier onlyRole(RoleManager.Role _role) {
+        require(roleManager.getRole(msg.sender) == _role, "Wrong role");
         _;
     }
 
-    // Allow anyone to register for role (consider changing this logic)
-    function register(Role _role) external {
-        require(roles[msg.sender] == Role.None, "Already registered");
-        require(_role != Role.None, "Invalid role");
-        roles[msg.sender] = _role;
-    }
+    function createPart(string memory partName, uint256 partPrice) external onlyRole(RoleManager.Role.Manufacturer) {
+        uint256 partId = _nextPartId.current();
 
-    // Only Manufacturer can make parts
-    function createPart(string memory metadata, uint256 partPrice) external onlyRole(Role.Manufacturer) {
-        uint256 partId = _nextPartId.current(); 
-        Part part = new Part(partId, metadata, msg.sender);
+        Part part = new Part(partId, partName, roleManager.getManufacturerBrand(msg.sender), msg.sender);
         parts[partId] = address(part);
 
         partPrices[partId] = partPrice * 1 ether;
         partHistory[partId].push(msg.sender);
+
         emit PartCreated(partId, address(part));
-        _nextPartId.increment(); 
+        _nextPartId.increment();
     }
 
-    // Transferring part logics 
     function transferPart(uint256 partId, address to) external {
-        require(to != address(0), "Invalid to");
+        require(to != address(0), "Invalid recipient");
         Part part = Part(parts[partId]);
         require(msg.sender == part.owner(), "Not owner");
 
-        Role fromRole = roles[msg.sender];
-        Role toRole = roles[to];
+        RoleManager.Role fromRole = roleManager.getRole(msg.sender);
+        RoleManager.Role toRole = roleManager.getRole(to); 
+
         require(_validFlow(fromRole, toRole), "Bad transfer");
 
-        if (toRole == Role.Consumer) {
+        if (toRole == RoleManager.Role.Buyer) {
             boughtAt[partId] = block.timestamp;
         }
 
@@ -83,10 +69,10 @@ contract AutoChainParts {
         address seller = part.owner();
         uint256 price = partPrices[partID];
 
-        require(buyer != address(0), "Invalid part");
+        require(buyer != address(0), "Invalid buyer");
         require(buyer != seller, "Already owner");
         require(msg.value >= price, "Insufficient funds");
-        require(_validFlow(roles[seller], roles[buyer]), "Transfer not allowed");
+        require(_validFlow(roleManager.getRole(seller), roleManager.getRole(buyer)), "Transfer not allowed");
 
         payable(seller).transfer(price);
 
@@ -96,29 +82,25 @@ contract AutoChainParts {
 
         part.contractTransferOwnership(buyer);
         partHistory[partID].push(buyer);
+        boughtAt[partID] = block.timestamp;
+
         emit Transferred(partID, seller, buyer);
-
-        boughtAt[partID] = block.timestamp; 
     }
 
-    // Basically saying M -> D -> R -> C (add more if ever)
-    function _validFlow(Role from, Role to) internal pure returns (bool) {
-        if (from == Role.Manufacturer && to == Role.Distributor) return true;
-        if (from == Role.Distributor && to == Role.Retailer) return true;
-        if (from == Role.Retailer && to == Role.Consumer) return true;
+    function _validFlow(RoleManager.Role from, RoleManager.Role to) internal pure returns (bool) {
+        if (from == RoleManager.Role.Manufacturer && to == RoleManager.Role.Seller) return true;
+        if ((from == RoleManager.Role.Seller && to == RoleManager.Role.Buyer) 
+            || (from == RoleManager.Role.Buyer && to == RoleManager.Role.Seller)) return true;
         return false;
-    }
-
-    function getHistory(uint256 partId) external view returns (address[] memory) {
-        return partHistory[partId];
     }
 
     function claimWarranty(uint256 partId) external {
         Part part = Part(parts[partId]);
         require(msg.sender == part.owner(), "Not owner");
-        require(roles[msg.sender] == Role.Consumer, "Not consumer");
+        require(roleManager.getRole(msg.sender) == RoleManager.Role.Buyer, "Not a buyer");
+        require(boughtAt[partId] != 0, "Not purchased");
         require(block.timestamp <= boughtAt[partId] + WARRANTY_PERIOD, "Warranty expired");
-        require(boughtAt[partId] != 0, "No purchase record");
+
         part.claimWarranty();
     }
 
@@ -127,10 +109,4 @@ contract AutoChainParts {
         require(msg.sender == part.owner(), "Not owner");
         part.updateCondition(_condition);
     }
-    
-    //for debugging purposes
-    function getUser() public view returns (address) {
-        return msg.sender;
-    }
 }
-
